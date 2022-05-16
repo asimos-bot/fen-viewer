@@ -62,8 +62,8 @@ class Piece {
 class Board {
     public pieces: Array<Array<Option<Piece>>>;
     private castling: string;
-    private enpassant: [number, number];
-    constructor(pieces: Array<Array<Option<Piece>>>, castling: string, enpassant: [number, number]) {
+    public enpassant: Option<[number, number]>;
+    constructor(pieces: Array<Array<Option<Piece>>>, castling: string, enpassant: Option<[number, number]>) {
         this.pieces = pieces;
         this.castling = castling;
         this.enpassant = enpassant;
@@ -119,7 +119,7 @@ export class FenViewer {
         });
     }
 
-    private async boardBackground() {
+    private async boardBackground(enpassant: Option<[number, number]>) {
 
         let background = await sharp({
             create: {
@@ -131,6 +131,20 @@ export class FenViewer {
                     g: this.rgba[1],
                     b: this.rgba[2],
                     alpha: 1
+                }
+            }
+        }).png().toBuffer();
+
+        let enpassant_tile = await sharp({
+            create: {
+                width: this.tile_size,
+                height: this.tile_size,
+                channels: 4,
+                background: {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    alpha: 0.5
                 }
             }
         }).png().toBuffer();
@@ -161,6 +175,15 @@ export class FenViewer {
                     })
             }
         }
+        if(issome(enpassant)) {
+            lightTiles.push({
+                input: enpassant_tile,
+                width: this.tile_size,
+                height: this.tile_size,
+                top: enpassant[0] * this.tile_size,
+                left: enpassant[1] * this.tile_size
+            })
+        }
         return await sharp(background)
             .composite(lightTiles)
             .png()
@@ -180,11 +203,10 @@ export class FenViewer {
     }
 
     public async populateBoard(board: Board) {
-        let background = await this.boardBackground();
+        let background = await this.boardBackground(board.enpassant);
         let pieces : Array<any> = [];
         for(let i = 0; i < 8; i++) {
             for(let j = 0; j < 8; j++) {
-                //this.drawPiece(pngPong, board[i][j], i, j);
                 await this.getCompositeArgument(pieces, board.pieces[i][j], i, j);
             }
         }
@@ -202,7 +224,9 @@ export class FenViewer {
         let attrs = rows[1].split(' ');
         rows = rows[0].split('/');
         if (rows.length != 8 || attrs.length != 5) new Error("invalid fen string");
-
+        if(!(attrs[2] == "-" || attrs[2].length == 2)) {
+            return new Error("invalid enpassant");
+        }
         // create empty matrix
         let board : any = []
         for(let i = 0; i < 8; i++) {
@@ -232,7 +256,14 @@ export class FenViewer {
             }
             if(j!=8) return new Error("invalid fen string");
         }
-        return new Board(board, attrs[1], [0, 1]);
+
+        let enpassant : Option<[number, number]> = null;
+        if(attrs[2] != "-") {
+            enpassant = [0, 0];
+            enpassant[1] = parseInt(attrs[2][0], 36) - 10;
+            enpassant[0] = parseInt(attrs[2][1])-1;
+        }
+        return new Board(board, attrs[1], enpassant);
     }
 
     private stringCheck(text: string, begin: number, end: number) {
