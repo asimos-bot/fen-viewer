@@ -4,6 +4,7 @@
 	"description": "Shows preview of a chess game board when hovering above a valid FEN code string",
 	"version": "0.0.1",
 	"publisher": "asimos-bot",
+        "repository": "https://github.com/asimos-bot/fen-viewer.git",
 	"engines": {
 		"vscode": "^1.67.0"
 	},
