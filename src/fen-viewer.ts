@@ -59,6 +59,17 @@ class Piece {
     }
 }
 
+class Board {
+    public pieces: Array<Array<Option<Piece>>>;
+    private castling: string;
+    private enpassant: [number, number];
+    constructor(pieces: Array<Array<Option<Piece>>>, castling: string, enpassant: [number, number]) {
+        this.pieces = pieces;
+        this.castling = castling;
+        this.enpassant = enpassant;
+    }
+}
+
 export class FenViewer {
 
     private tile_size: number;
@@ -90,6 +101,9 @@ export class FenViewer {
             case 'R':
                 type = PieceType.ROOK;
                 break;
+            default:
+                return null;
+                break;
         }
         return new Piece(type, color);
     }
@@ -119,9 +133,38 @@ export class FenViewer {
                     alpha: 1
                 }
             }
-        }).png();
+        }).png().toBuffer();
 
-        return background.toBuffer();
+        let lightTile = await sharp({
+            create: {
+                width: this.tile_size,
+                height: this.tile_size,
+                channels: 4,
+                background: {
+                    r: this.rgba[0]/2,
+                    g: this.rgba[1]/2,
+                    b: this.rgba[2]/2,
+                    alpha: 0.5
+                }
+            }
+        }).png().toBuffer();
+
+        let lightTiles = [];
+        for(let i = 0; i < 8; i++) {
+            for(let j = (i & 1); j < 8; j+=2) {
+                lightTiles.push({
+                        input: new Uint8Array(lightTile),
+                        width: this.tile_size,
+                        height: this.tile_size,
+                        top: i * this.tile_size,
+                        left: j * this.tile_size
+                    })
+            }
+        }
+        return await sharp(background)
+            .composite(lightTiles)
+            .png()
+            .toBuffer();
     }
 
     public async getCompositeArgument(pieces: Array<any>, piece: Option<Piece>, i: number, j: number) {
@@ -136,14 +179,13 @@ export class FenViewer {
         }
     }
 
-    public async populateBoard(board: Array<Array<Option<Piece>>>) {
-        console.log(board);
+    public async populateBoard(board: Board) {
         let background = await this.boardBackground();
         let pieces : Array<any> = [];
         for(let i = 0; i < 8; i++) {
             for(let j = 0; j < 8; j++) {
                 //this.drawPiece(pngPong, board[i][j], i, j);
-                await this.getCompositeArgument(pieces, board[i][j], i, j);
+                await this.getCompositeArgument(pieces, board.pieces[i][j], i, j);
             }
         }
         return encode(await sharp(background).composite(pieces).png().toBuffer());
@@ -153,7 +195,7 @@ export class FenViewer {
         return str.toUpperCase() == str;
     }
 
-    private parseFen(str: String) : Result<Array<Array<Option<Piece>>>> {
+    private parseFen(str: String) : Result<Board> {
         let rows = str.split(/ (.*)/s);
         if (rows.length != 3) return new Error("invalid fen string");
         rows = [rows[0], rows[1]];
@@ -179,16 +221,18 @@ export class FenViewer {
                         color = PieceColor.WHITE;
                     }
                     let piece = FenViewer.charToPiece(c.toUpperCase(), color);
-                    if(piece == null) new Error("invalid fen string");
                     board[i][j] = piece;
                     j++;
-                } else {
+                } else if("12345678".includes(c)) {
                     j += Number(c);
+                    if(j > 8) return new Error("Invalid row sum");
+                } else {
+                    return new Error("Invalid FEN string character");
                 }
             }
-            if(j!=8) new Error("invalid fen string");
+            if(j!=8) return new Error("invalid fen string");
         }
-        return board;
+        return new Board(board, attrs[1], [0, 1]);
     }
 
     private stringCheck(text: string, begin: number, end: number) {
@@ -234,7 +278,7 @@ export class FenViewer {
         return line.substring(beginStr, endStr);
     }
 
-    public strToBoard(document: TextDocument, position: Position): Result<Array<Array<Option<Piece>>>> {
+    public strToBoard(document: TextDocument, position: Position): Result<Board> {
         const _line = document.lineAt(position);
         const first = _line.firstNonWhitespaceCharacterIndex;
         const line = _line.text;

@@ -11,8 +11,7 @@
 		"Visualization"
 	],
 	"activationEvents": [
-		"onCommand:fen-viewer.helloWorld",
-		"onLanguage:python"
+		"*"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {

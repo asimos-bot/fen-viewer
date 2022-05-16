@@ -8,9 +8,9 @@ import { FenViewer, PieceType, PieceColor, ok } from './fen-viewer';
 export function activate(context: vscode.ExtensionContext) {
 
 	// build game board tile
-	let fenViewer = new FenViewer(25, [128, 64, 255, 255]);
+	let fenViewer = new FenViewer(25, [24, 240, 128, 255]);
 
-	let chess_hover = vscode.languages.registerHoverProvider('python', {
+	let chess_hover = vscode.languages.registerHoverProvider('*', {
 
 		async provideHover(document, position) {
 
@@ -19,11 +19,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 				let filledBoard = await fenViewer.populateBoard(boardPieces);
 
-				vscode.window.showInformationMessage(filledBoard);
 				return new vscode.Hover(new vscode.MarkdownString(`![](data:image/png;base64,${filledBoard})`));
 			} else {
 
-				vscode.window.showInformationMessage('populate Board failed');
 				return null;
 			}
 		}	
