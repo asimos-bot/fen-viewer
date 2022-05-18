@@ -16,7 +16,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 			let boardPieces = fenViewer.strToBoard(document, position);
 			if(ok(boardPieces)) {
-
 				let filledBoard = await fenViewer.populateBoard(boardPieces);
 
 				return new vscode.Hover(new vscode.MarkdownString(`![](data:image/png;base64,${filledBoard})`));

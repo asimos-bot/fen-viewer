@@ -1,4 +1,4 @@
-import { Position, TextDocument } from "vscode";
+import { CommentThreadCollapsibleState, Position, TextDocument } from "vscode";
 import * as images from './images';
 import { decode, encode } from 'typescript-base64-arraybuffer';
 
@@ -61,7 +61,7 @@ class Piece {
 
 class Board {
     public pieces: Array<Array<Option<Piece>>>;
-    private castling: string;
+    public castling: string;
     public enpassant: Option<[number, number]>;
     constructor(pieces: Array<Array<Option<Piece>>>, castling: string, enpassant: Option<[number, number]>) {
         this.pieces = pieces;
@@ -72,12 +72,19 @@ class Board {
 
 export class FenViewer {
 
-    private tile_size: number;
+    private tileSize: number;
     private rgba: [number, number, number, number];
-    private boardPng: any;
-    constructor(tile_size: number, rgba: [number, number, number, number]) {
+    private background: Option<ArrayBuffer>;
+    private castlingMarker: Option<ArrayBuffer>;
+    private enpassantTile: Option<ArrayBuffer>;
+    private lightTile: Option<ArrayBuffer>;
+    constructor(tileSize: number, rgba: [number, number, number, number]) {
         this.rgba = rgba;
-        this.tile_size = tile_size;
+        this.tileSize = tileSize;
+        this.background = null;
+        this.castlingMarker = null;
+        this.enpassantTile = null;
+        this.lightTile = null;
     }
 
     public static charToPiece(c: string, color: PieceColor) {
@@ -108,23 +115,79 @@ export class FenViewer {
         return new Piece(type, color);
     }
 
-    private async addlightTileComposition(lightTiles: Array<any>, i: number, j: number, newlightTile: any) {
+    private async getBoardEnPassantPngBuffer() {
 
-        lightTiles.push({
-            input: await newlightTile.png().toBuffer(),
-            top: i * this.tile_size,
-            left: j * this.tile_size,
-            height: this.tile_size,
-            width: this.tile_size
-        });
+        if(issome(this.enpassantTile)) {
+            return this.enpassantTile;
+        }
+        let enpassantTile = await sharp({
+            create: {
+                width: this.tileSize,
+                height: this.tileSize,
+                channels: 4,
+                background: {
+                    r: 255,
+                    g: 64,
+                    b: 64,
+                    alpha: 1
+                }
+            }
+        }).png().toBuffer();
+        this.enpassantTile = enpassantTile;
+        return enpassantTile;
     }
 
-    private async boardBackground(enpassant: Option<[number, number]>) {
+    private async getBoardCastlingMarkerPngBuffer() {
+        if(issome(this.castlingMarker)) {
+            return this.castlingMarker;
+        }
 
+        let castlingMarker = await sharp({
+            create: {
+                width: Math.round(this.tileSize/4),
+                height: Math.round(this.tileSize/4),
+                channels: 4,
+                background: {
+                    r: 255,
+                    g: 213,
+                    b: 0,
+                    alpha: 1
+                }
+            }
+        }).png().toBuffer();
+        this.castlingMarker = castlingMarker;
+        return castlingMarker;
+    }
+
+    private async getBoardLightTilePngBuffer() {
+        if(issome(this.lightTile)) {
+            return this.lightTile;
+        }
+
+        let lightTile = await sharp({
+            create: {
+                width: this.tileSize,
+                height: this.tileSize,
+                channels: 4,
+                background: {
+                    r: this.rgba[0]/2,
+                    g: this.rgba[1]/2,
+                    b: this.rgba[2]/2,
+                    alpha: 0.5
+                }
+            }
+        }).png().toBuffer();
+        this.lightTile = lightTile
+        return lightTile;
+    }
+    private async getBoardBackgroundPngBuffer() {
+        if(issome(this.background)) {
+            return this.background;
+        }
         let background = await sharp({
             create: {
-                width: this.tile_size * 8,
-                height: this.tile_size * 8,
+                width: this.tileSize * 8,
+                height: this.tileSize * 8,
                 channels: 4,
                 background: {
                     r: this.rgba[0],
@@ -135,57 +198,65 @@ export class FenViewer {
             }
         }).png().toBuffer();
 
-        let enpassant_tile = await sharp({
-            create: {
-                width: this.tile_size,
-                height: this.tile_size,
-                channels: 4,
-                background: {
-                    r: 255,
-                    g: 255,
-                    b: 255,
-                    alpha: 0.5
-                }
-            }
-        }).png().toBuffer();
-
-        let lightTile = await sharp({
-            create: {
-                width: this.tile_size,
-                height: this.tile_size,
-                channels: 4,
-                background: {
-                    r: this.rgba[0]/2,
-                    g: this.rgba[1]/2,
-                    b: this.rgba[2]/2,
-                    alpha: 0.5
-                }
-            }
-        }).png().toBuffer();
 
         let lightTiles = [];
         for(let i = 0; i < 8; i++) {
             for(let j = (i & 1); j < 8; j+=2) {
                 lightTiles.push({
-                        input: new Uint8Array(lightTile),
-                        width: this.tile_size,
-                        height: this.tile_size,
-                        top: i * this.tile_size,
-                        left: j * this.tile_size
+                        input: new Uint8Array(await this.getBoardLightTilePngBuffer()),
+                        top: i * this.tileSize,
+                        left: j * this.tileSize
                     })
             }
         }
+        this.background = await sharp(background)
+            .composite(lightTiles)
+            .png()
+            .toBuffer();
+        return this.background;
+    }
+
+    private async boardBackground(enpassant: Option<[number, number]>, castling: string) {
+
+        let compositions = [];
         if(issome(enpassant)) {
-            lightTiles.push({
-                input: enpassant_tile,
-                width: this.tile_size,
-                height: this.tile_size,
-                top: enpassant[0] * this.tile_size,
-                left: enpassant[1] * this.tile_size
+            compositions.push({
+                input: await this.getBoardEnPassantPngBuffer(),
+                top: enpassant[0] * this.tileSize,
+                left: enpassant[1] * this.tileSize
             })
         }
-        return await sharp(background)
-            .composite(lightTiles)
+        // castling
+        if(castling.includes("q")) {
+            compositions.push({
+                input: await this.getBoardCastlingMarkerPngBuffer(),
+                top: 0,
+                left: 0
+            })
+        }
+        if(castling.includes("k")) {
+            compositions.push({
+                input: await this.getBoardCastlingMarkerPngBuffer(),
+                top: 0,
+                left: 7 * this.tileSize
+            })
+        }
+        if(castling.includes("Q")) {
+            compositions.push({
+                input: await this.getBoardCastlingMarkerPngBuffer(),
+                top: 7 * this.tileSize,
+                left: 0
+            })
+        }
+        if(castling.includes("K")) {
+            compositions.push({
+                input: await this.getBoardCastlingMarkerPngBuffer(),
+                top: 7 * this.tileSize,
+                left: 7 * this.tileSize
+            })
+        }
+        return await sharp(await this.getBoardBackgroundPngBuffer())
+            .composite(compositions)
             .png()
             .toBuffer();
     }
@@ -194,16 +265,14 @@ export class FenViewer {
         if(issome(piece)) {
             pieces.push({
                 input: await piece.getPngBuffer(),
-                width: this.tile_size,
-                height: this.tile_size,
-                top: i * this.tile_size,
-                left: j * this.tile_size
+                top: i * this.tileSize,
+                left: j * this.tileSize
             })
         }
     }
 
     public async populateBoard(board: Board) {
-        let background = await this.boardBackground(board.enpassant);
+        let background = await this.boardBackground(board.enpassant, board.castling);
         let pieces : Array<any> = [];
         for(let i = 0; i < 8; i++) {
             for(let j = 0; j < 8; j++) {
