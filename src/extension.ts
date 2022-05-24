@@ -14,13 +14,17 @@ export function activate(context: vscode.ExtensionContext) {
 
 		async provideHover(document, position) {
 
+			console.log("Parsing...")
+			vscode.window.showInformationMessage("Parsin")
 			let boardPieces = fenViewer.strToBoard(document, position);
 			if(ok(boardPieces)) {
+				console.log("Parsed FEN String!");
 				let filledBoard = await fenViewer.populateBoard(boardPieces);
+				console.log("Filled board");
 
 				return new vscode.Hover(new vscode.MarkdownString(`![](data:image/png;base64,${filledBoard})`));
 			} else {
-				vscode.window.showInformationMessage("failed to parse FEN String")
+				console.log("failed to parse FEN String")
 				return null;
 			}
 		}	
