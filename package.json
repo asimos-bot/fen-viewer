@@ -2,7 +2,7 @@
 	"name": "fen-viewer",
 	"displayName": "FEN viewer",
 	"description": "Shows preview of a chess game board when hovering above a valid FEN code string. En passant and castling markers included!",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"publisher": "asimos-bot",
         "repository": "https://github.com/asimos-bot/fen-viewer.git",
 	"engines": {

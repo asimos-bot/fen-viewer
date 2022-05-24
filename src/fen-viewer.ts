@@ -1,6 +1,6 @@
-import { CommentThreadCollapsibleState, Position, TextDocument } from "vscode";
+import { Position, TextDocument } from "vscode";
 import * as images from './images';
-import { decode, encode } from 'typescript-base64-arraybuffer';
+import { encode } from 'typescript-base64-arraybuffer';
 
 const sharp = require('sharp');
 
