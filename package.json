@@ -19,12 +19,6 @@
 		"capabilities": {
 			"hoverProvider": "true"
 		},
-		"commands": [
-			{
-				"command": "fen-viewer.helloWorld",
-				"title": "Hello World"
-			}
-		]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run package",

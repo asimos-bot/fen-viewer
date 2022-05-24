@@ -20,7 +20,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 				return new vscode.Hover(new vscode.MarkdownString(`![](data:image/png;base64,${filledBoard})`));
 			} else {
-
+				vscode.window.showInformationMessage("failed to parse FEN String")
 				return null;
 			}
 		}	
