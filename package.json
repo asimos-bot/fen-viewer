@@ -4,7 +4,10 @@
 	"description": "Shows preview of a chess game board when hovering above a valid FEN code string. En passant and castling markers included!",
 	"version": "0.2.1",
 	"publisher": "asimos-bot",
-        "icon": "src/fen-viewer.png",
+        "icon": "fen-viewer.png",
+        "galleryBanner": {
+          "color": "#7BC668"
+        },
 	"repository": "https://github.com/asimos-bot/fen-viewer.git",
 	"engines": {
 		"vscode": "^1.67.2"
