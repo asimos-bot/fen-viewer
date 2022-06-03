@@ -4,6 +4,8 @@ import { encode } from 'typescript-base64-arraybuffer';
 
 const sharp = require('sharp');
 
+// a pop should appear for a string like this: "8/5k2/3p4/1p1Pp2p/pP2Pp1P/P4P1K/8/8 b - - 99 50"
+
 type Result<T> = T | Error;
 
 export const ok = <T>(r: Result<T>): r is T => !(r instanceof Error);
